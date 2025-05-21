@@ -25,9 +25,9 @@ var EVMChains = map[string]ChainInfo{
 		},
 	},
 	"base-sepolia": {
-		ChainID: big.NewInt(167002),
+		ChainID: big.NewInt(84532), // Updated to the ID specified in the task
 		TokenContracts: map[string]common.Address{
-			"USDC": common.HexToAddress("0x036CbD53842c5426634e7929541eC2318f3dCF7e"),
+			"USDC": common.HexToAddress("0x036CbD53842c5426634e7929541eC2318f3dCF7e"), // Keeping existing USDC address
 		},
 	},
 }

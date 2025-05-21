@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
@@ -15,7 +16,10 @@ import (
 	"github.com/rabbitprincess/x402-facilitator/types"
 )
 
-var _ Facilitator = (*EVMFacilitator)(nil)
+var (
+	_                     Facilitator = (*EVMFacilitator)(nil)
+	minPaymentThreshold               = big.NewInt(1000000000000000) // 0.001 * 10^18
+)
 
 type EVMFacilitator struct {
 	scheme types.Scheme
@@ -104,7 +108,33 @@ func (t *EVMFacilitator) Verify(payload *types.PaymentPayload, req *types.Paymen
 
 	// Step 6: Deadline check
 
-	// Step 7: TODO: Nonce freshness check (optional in v1)
+	// Step 7: Nonce freshness check
+	fromAddress := evmPayload.Authorization.From
+	currentNonce, err := t.client.PendingNonceAt(context.Background(), fromAddress)
+	if err != nil {
+		return &types.PaymentVerifyResponse{
+			IsValid:       false,
+			InvalidReason: fmt.Sprintf("failed to get nonce: %v", err),
+			Payer:         fromAddress.String(),
+		}, nil
+	}
+	if currentNonce != evmPayload.Authorization.Nonce.Uint64() {
+		return &types.PaymentVerifyResponse{
+			IsValid:       false,
+			InvalidReason: "invalid_nonce",
+			Payer:         fromAddress.String(),
+		}, nil
+	}
+
+	// Step 7.5: Check minimum payment threshold
+	paymentValue := evmPayload.Authorization.Value
+	if paymentValue.Cmp(minPaymentThreshold) < 0 {
+		return &types.PaymentVerifyResponse{
+			IsValid:       false,
+			InvalidReason: "payment_value_too_low",
+			Payer:         evmPayload.Authorization.From.String(),
+		}, nil
+	}
 
 	// Step 8: Check ERC20 balance
 
